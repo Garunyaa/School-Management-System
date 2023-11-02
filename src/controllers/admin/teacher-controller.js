@@ -1,32 +1,20 @@
 import { Teacher } from "../../models/teacher-model";
-import { teacherValidation } from "../../utils/teacher-validation";
 import { Class } from "../../models/class-model";
 import { Subject } from "../../models/subject-model";
 import { successResponse, errorResponse } from "../../middlewares/response";
-import jwt from "jsonwebtoken";
-import mongoose, { mongo } from "mongoose";
 import bcrypt from "bcrypt";
-import dotenv from "dotenv";
-dotenv.config();
 
 // Add Teachers
 
 export const addTeacher = async (req, res) => {
   try {
-    const { error, value } = teacherValidation.validate(req.body);
-    if (error) {
-      return errorResponse(res, 400, { error: error.details[0].message });
-    }
-    const { employee_id, name, email, password, role } = value;
-    const authToken = jwt.sign(value, process.env.SECRET_KEY);
+    const { employee_id, name, email, password } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
     const teacher = new Teacher({
       employee_id,
       name,
       email,
       password: hashedPassword,
-      role,
-      auth_token: authToken,
     });
     await teacher.save();
     successResponse(res, 201, "Teacher added", teacher);
@@ -41,9 +29,6 @@ export const addTeacher = async (req, res) => {
 export const editTeacher = async (req, res) => {
   try {
     const { id } = req.params;
-    if(!mongoose.Types.ObjectId.isValid(id)){
-      return errorResponse(res, 400, "Invalid Teacher ID");
-    }
     const updatedFields = req.body;
     const updatedTeacher = await Teacher.findByIdAndUpdate(id, updatedFields, {
       new: true,
@@ -61,9 +46,6 @@ export const editTeacher = async (req, res) => {
 export const removeTeacher = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return errorResponse(res, 400, "Invalid Teacher ID");
-    }
     const removedTeacher = await Teacher.findByIdAndRemove(id);
     if (!removedTeacher) {
       return errorResponse(res, 404, "Teacher not found");
@@ -81,14 +63,8 @@ export const assignClassToTeacher = async (req, res) => {
   try {
     const { class_id, teacher_id } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(class_id)) {
-      return errorResponse(res, 400, "Invalid Class ID");
-    } else if (!mongoose.Types.ObjectId.isValid(teacher_id)) {
-      return errorResponse(res, 400, "Invalid Teacher ID");
-    }
-
-    const foundClass = await Class.findById(class_id);
-    if (!foundClass) {
+    const findClass = await Class.findById(class_id);
+    if (!findClass) {
       return errorResponse(res, 404, "Class not found");
     }
     const teacher = await Teacher.findById(teacher_id);
@@ -99,23 +75,23 @@ export const assignClassToTeacher = async (req, res) => {
       return errorResponse(res, 400, "Class already assigned");
     }
     teacher.class.push(class_id);
-    foundClass.teachers.push(teacher_id);
+    findClass.teachers.push(teacher_id);
 
     const updateTeacher = await Teacher.findByIdAndUpdate(
       teacher_id,
       { class: teacher.class },
       { new: true }
     );
-    const updateFoundClass = await Class.findByIdAndUpdate(
+    const updateFindClass = await Class.findByIdAndUpdate(
       class_id,
-      { teachers: foundClass.teachers },
+      { teachers: findClass.teachers },
       { new: true }
     );
-    if (updateTeacher && updateFoundClass) {
+    if (updateTeacher && updateFindClass) {
       return successResponse(
         res,
         200,
-        `${foundClass.standard} added to Teacher ${teacher.name}`,
+        `${findClass.standard} added to Teacher ${teacher.name}`,
         teacher.class
       );
     } else {
@@ -132,13 +108,6 @@ export const assignClassToTeacher = async (req, res) => {
 export const assignSubjectToTeacher = async (req, res) => {
   try {
     const { subject_id, teacher_id } = req.body;
-
-    if (!mongoose.Types.ObjectId.isValid(teacher_id)) {
-      return errorResponse(res, 400, "Invalid Teacher ID");
-    } else if (!mongoose.Types.ObjectId.isValid(subject_id)) {
-      return errorResponse(res, 400, "Invalid Subject ID");
-    }
-
     const subject = await Subject.findById(subject_id);
     if (!subject) {
       return errorResponse(res, 404, "Subject not found");

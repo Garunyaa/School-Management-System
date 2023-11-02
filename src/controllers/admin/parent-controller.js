@@ -1,30 +1,18 @@
 import { Parent } from "../../models/parent-model";
-import { parentValidation } from "../../utils/parent-validation";
 import { Student } from "../../models/student-model";
 import { successResponse, errorResponse } from "../../middlewares/response";
-import jwt from "jsonwebtoken";
-import mongoose from "mongoose";
 import bcrypt from "bcrypt";
-import dotenv from "dotenv";
-dotenv.config();
 
 // Add Parents
 
 export const addParent = async (req, res) => {
   try {
-    const { error, value } = parentValidation.validate(req.body);
-    if (error) {
-      return errorResponse(res, 400, { error: error.details[0].message });
-    }
-    const { name, email, password, role } = value;
-    const authToken = jwt.sign(value, process.env.SECRET_KEY);
+    const { name, email, password } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
     const parent = new Parent({
       name,
       email,
       password: hashedPassword,
-      role,
-      auth_token: authToken,
     });
     await parent.save();
     successResponse(res, 201, "Parent added", parent);
@@ -39,9 +27,6 @@ export const addParent = async (req, res) => {
 export const editParent = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return errorResponse(res, 400, "Invalid Student ID");
-    }
     const updatedFields = req.body;
     const updatedParent = await Parent.findByIdAndUpdate(id, updatedFields, {
       new: true,
@@ -59,9 +44,6 @@ export const editParent = async (req, res) => {
 export const removeParent = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return errorResponse(res, 400, "Invalid Parent ID");
-    }
     const removedParent = await Parent.findByIdAndRemove(id);
     if (!removedParent) {
       return errorResponse(res, 404, "Parent not found");
@@ -78,12 +60,6 @@ export const removeParent = async (req, res) => {
 export const associateWithChildren = async (req, res) => {
   try {
     const { student_id, parent_id } = req.body;
-    if (!mongoose.Types.ObjectId.isValid(student_id)) {
-      return errorResponse(res, 400, "Invalid Student ID");
-    } else if (!mongoose.Types.ObjectId.isValid(parent_id)) {
-      return errorResponse(res, 400, "Invalid Parent ID");
-    }
-
     const student = await Student.findById(student_id);
     if (!student) {
       return errorResponse(res, 404, "Student not found");

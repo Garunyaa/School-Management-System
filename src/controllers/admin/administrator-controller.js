@@ -1,35 +1,22 @@
 import { Administrator } from "../../models/administrator-model";
-import { adminValidation } from "../../utils/admin-validation";
 import { Teacher } from "../../models/teacher-model";
 import { Student } from "../../models/student-model";
 import { Parent } from "../../models/parent-model";
 import { Subject } from "../../models/subject-model";
-import { subjectValidation } from "../../utils/subject-validation";
 import { successResponse, errorResponse } from "../../middlewares/response";
 import jwt from "jsonwebtoken";
-import mongoose from "mongoose";
 import bcrypt from "bcrypt";
-import dotenv from "dotenv";
-dotenv.config();
 
 // Create Admin
 
 export const createAdmin = async (req, res) => {
   try {
-    const { error, value } = adminValidation.validate(req.body);
-    if (error) {
-      return errorResponse(res, 400, { error: error.details[0].message });
-    }
-
-    const { name, email, password, role } = value;
-    const authToken = jwt.sign(value, process.env.SECRET_KEY);
+    const { name, email, password } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
     const admin = new Administrator({
       name,
       email,
       password: hashedPassword,
-      role,
-      auth_token: authToken,
     });
     await admin.save();
     successResponse(res, 201, "Admin created", admin);
@@ -51,9 +38,18 @@ export const adminLogin = async (req, res) => {
     if (!admin) {
       return errorResponse(res, 404, "Admin not found");
     }
+    const authToken = jwt.sign(
+      { name: admin.name, email: admin.email, id: admin._id },
+      process.env.SECRET_KEY,
+      { expiresIn: "1d" }
+    );
     const passwordMatch = await bcrypt.compare(password, admin.password);
     if (passwordMatch) {
-      return successResponse(res, 200, "Login Successful", admin);
+      admin.password = undefined;
+      return successResponse(res, 200, "Login Successful", {
+        admin,
+        auth_token: authToken,
+      });
     } else {
       return errorResponse(res, 401, "Invalid email or password");
     }
@@ -67,10 +63,6 @@ export const adminLogin = async (req, res) => {
 
 export const defineSubject = async (req, res) => {
   try {
-    const { error } = subjectValidation.validate(req.body);
-    if (error) {
-      return errorResponse(res, 400, { error: error.details[0].message });
-    }
     const { name } = req.body;
     const subject = new Subject({ name });
     await subject.save();
@@ -100,19 +92,12 @@ export const listAllUsers = async (req, res) => {
 
 export const blockUser = async (req, res) => {
   try {
-    const { user_id, role } = req.body;
-    if (!mongoose.Types.ObjectId.isValid(user_id)) {
-      return errorResponse(res, 400, "Invalid User ID");
-    }
+    const { user_id } = req.body;
 
-    let user;
-    if (role === "Parent") {
-      user = await Parent.findById(user_id);
-    } else if (role === "Student") {
-      user = await Student.findById(user_id);
-    } else if (role === "Teacher") {
-      user = await Teacher.findById(user_id);
-    }
+    const user =
+      (await Parent.findById(user_id)) ||
+      (await Student.findById(user_id)) ||
+      (await Teacher.findById(user_id));
     if (!user) {
       return errorResponse(res, 404, "User not found");
     }
@@ -122,7 +107,6 @@ export const blockUser = async (req, res) => {
     } else {
       return errorResponse(res, 400, "User already blocked");
     }
-
     successResponse(res, 200, "User blocked", user);
   } catch (error) {
     console.error(error);
@@ -132,19 +116,11 @@ export const blockUser = async (req, res) => {
 
 export const unblockUser = async (req, res) => {
   try {
-    const { user_id, role } = req.body;
-    if (!mongoose.Types.ObjectId.isValid(user_id)) {
-      return errorResponse(res, 400, "Invalid Teacher ID");
-    }
-
-    let user;
-    if (role === "Parent") {
-      user = await Parent.findById(user_id);
-    } else if (role === "Student") {
-      user = await Student.findById(user_id);
-    } else if (role === "Teacher") {
-      user = await Teacher.findById(user_id);
-    }
+    const { user_id } = req.body;
+    const user =
+      (await Parent.findById(user_id)) ||
+      (await Student.findById(user_id)) ||
+      (await Teacher.findById(user_id));
     if (!user) {
       return errorResponse(res, 404, "User not found");
     }
@@ -154,10 +130,10 @@ export const unblockUser = async (req, res) => {
     } else {
       errorResponse(res, 400, "User not blocked");
     }
-    successResponse(res, 200, "User unblocked", user);
+    return successResponse(res, 200, "User unblocked", user);
   } catch (error) {
     console.error(error);
-    errorResponse(res, 500, "Error unblocking user");
+    return errorResponse(res, 500, "Error unblocking user");
   }
 };
 
@@ -166,17 +142,17 @@ export const unblockUser = async (req, res) => {
 export const getUserDetails = async (req, res) => {
   try {
     const { id } = req.params;
-    const teacher = await Teacher.findById(id);
-    const student = await Student.findById(id);
-    const parent = await Parent.findById(id);
+    const teacher = await Teacher.findById(id).select({ password: 0 }).exec();
+    const student = await Student.findById(id).select({ password: 0 }).exec();
+    const parent = await Parent.findById(id).select({ password: 0 }).exec();
 
     if (teacher) {
       console.log(teacher);
       return successResponse(res, 200, "Teacher details listed", teacher);
     } else if (student) {
-      return successResponse(res, 200, "Student details listed", details);
+      return successResponse(res, 200, "Student details listed", student);
     } else if (parent) {
-      return successResponse(res, 200, "Parent details listed", details);
+      return successResponse(res, 200, "Parent details listed", parent);
     } else {
       return errorResponse(res, 404, "User not found");
     }

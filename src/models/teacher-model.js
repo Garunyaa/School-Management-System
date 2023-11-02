@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const teacherSchema = new mongoose.Schema({
   employee_id: { type: String, required: true, unique: true },
-  name: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   auth_token: { type: String },
@@ -13,7 +13,6 @@ const teacherSchema = new mongoose.Schema({
       ref: "Subject",
     },
   ],
-  role: { type: String, required: true },
   status: { type: Number, default: 1 },
   created_at: { type: Date, default: Date.now() },
 });

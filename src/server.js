@@ -14,7 +14,7 @@ const port = process.env.PORT;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 connectDB();
-app.use(express.static('uploads'))
+app.use(express.static("uploads"));
 
 app.use("/api/admin", adminRoutes);
 app.use("/api/teacher", teacherRoutes);
