@@ -99,7 +99,7 @@ export const listAllSubjects = async (req, res) => {
 // Upload study materials
 
 const storage = multer.diskStorage({
-  destination: "uploads",
+  destination: "src/utils/uploads",
   filename: function (req, file, cb) {
     const fileExtension = file.originalname.split(".").pop();
     cb(null, file.fieldname + "-" + Date.now() + "." + fileExtension);
